@@ -1,0 +1,17 @@
+[serve]
+# The address to serve on.
+address = "127.0.0.1"
+# The port to serve on.
+port = 8081
+# Open a browser tab once the initial build is complete.
+open = false
+# Disable auto-reload of the web app.
+no_autoreload = false
+
+# [[hooks]]
+# # This hook example shows all the current available fields. It will execute the equivalent of
+# # typing "echo Hello Trunk!" right at the start of the build process (even before the HTML file
+# # is read). By default, the command is spawned directly and no shell is used.
+# stage = "pre_build"
+# command = "./tailwindcss"
+# command_arguments = ["-i", "styles/input.css", "-o", "styles/output.css"]
