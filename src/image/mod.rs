@@ -1,3 +1,4 @@
+/// UI Icons from https://lucide.dev
 use yew::prelude::*;
 
 const STROKE: AttrValue = AttrValue::Static("currentColor");
@@ -107,6 +108,24 @@ pub fn sub_svg(_props: &IconProps) -> Html {
     html! {
         <Svg >
             <circle cx="12" cy="12" r="10"/><path d="M8 12h8"/>
+        </Svg>
+    }
+}
+
+#[function_component(AddSvg2)]
+pub fn add_svg2(_props: &IconProps) -> Html {
+    html! {
+        <Svg >
+            <path d="M5 12h14"/><path d="M12 5v14"/>
+        </Svg>
+    }
+}
+
+#[function_component(SubSvg2)]
+pub fn sub_svg2(_props: &IconProps) -> Html {
+    html! {
+        <Svg >
+            <path d="M5 12h14"/>
         </Svg>
     }
 }

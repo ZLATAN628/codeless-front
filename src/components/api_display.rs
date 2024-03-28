@@ -65,7 +65,7 @@ pub fn api_display() -> Html {
     html! {
         <div ref={div_node} class="flex flex-col h-screen w-screen">
             <ApiEditorResp height={*top_height}/>
-            <div onmousedown={mouse_down} class="cursor-row-resize border border-neutral border-coll border-collapse bg-base-200"><h2>{"\u{00a0}\u{00a0}接口信息"}</h2> </div>
+            <div onmousedown={mouse_down} class="cursor-row-resize border-x border-neutral border-coll border-collapse bg-base-200"><h2>{"\u{00a0}\u{00a0}接口信息"}</h2> </div>
             <ApiInfo height={(*bottom_height).clone()}/>
         </div>
     }

@@ -289,7 +289,7 @@ pub struct Code {
     pub response_body: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct CodeParameter {
     pub name: Option<String>,
     pub value: Option<String>,

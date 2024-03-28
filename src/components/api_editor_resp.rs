@@ -66,7 +66,7 @@ pub fn api_editor_resp(props: &ApiEditorRespProps) -> Html {
         }
     });
     html! {
-        <div ref={div_node} class="flex flex-row w-full justify-between border border-neutral border-collapse" style={style}>
+        <div ref={div_node} class="flex flex-row w-full justify-between border-r border-neutral border-collapse" style={style}>
             <ApiEditor width={*left_width} />
             <div onmousedown={mouse_down} class="w-[10px] cursor-col-resize">{"\u{00a0}"}</div>
             <ApiResponse width={*right_width} />
