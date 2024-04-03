@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use gloo::{
     console::log,
-    net::http::{Request, Response},
+    net::http::{Headers, Request, Response},
 };
 
 use super::NodeInfo;
@@ -51,4 +51,25 @@ where
             Err(e.into())
         }
     }
+}
+
+pub async fn do_get_json_with_headers<T>(
+    url: &str,
+    headers: Option<&HashMap<String, String>>,
+) -> (anyhow::Result<GenericResponse<T>>, Option<Headers>)
+where
+    T: DeserializeOwned,
+{
+    let resp = match do_get(url, headers).await {
+        Ok(resp) => resp,
+        Err(e) => {
+            return (Err(e.into()), None);
+        }
+    };
+    let result = match resp.json::<GenericResponse<T>>().await {
+        Ok(result) => Ok(result),
+        Err(e) => Err(e.into()),
+    };
+
+    (result, Some(resp.headers()))
 }

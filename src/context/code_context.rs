@@ -1,6 +1,9 @@
 use std::{collections::HashMap, rc::Rc};
 
-use gloo::storage::{LocalStorage, Storage};
+use gloo::{
+    net::http::Headers,
+    storage::{LocalStorage, Storage},
+};
 use monaco::api::TextModel;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -8,8 +11,97 @@ use yew::{prelude::*, virtual_dom::VNode};
 
 use crate::{backend::NodeInfo, components::editor::monaco_editor::editor::MonacoEditor};
 
+pub type CodesContext = UseReducerHandle<CodesState>;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct CodeTab(String, bool);
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct CodeTabs {
+    pub data: HashMap<String, CodeTab>,
+    pub order: Vec<String>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct GroupNode {
+    path: String,
+    parent_id: String,
+}
+
+#[derive(Clone, Properties)]
+pub struct CodesState {
+    code: Code,
+    code_tabs: CodeTabs,
+    code_editors: HashMap<String, VNode>,
+    group_map: HashMap<String, GroupNode>,
+    need_update: u64,
+}
+
+#[derive(Debug)]
+pub enum CodesStateMsg {
+    UpdateCode(Code, bool),
+    RemoveCode(String),
+    #[allow(dead_code)]
+    UpdateCodeTab(String, String),
+    ChangeCode(String),
+    EditorChanged(String),
+    SetNextCode(String),
+    SaveGroup(NodeInfo),
+    UpdateResp(String, Option<Headers>),
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
+pub struct CodeParameter {
+    pub name: Option<String>,
+    pub value: Option<String>,
+    pub description: Option<String>,
+    pub required: bool,
+    pub data_type: Option<String>,
+    #[serde(rename = "type")]
+    pub type_: Option<String>,
+    #[serde(rename = "defaultValue")]
+    pub default_value: Option<String>,
+    #[serde(rename = "validateType")]
+    pub validate_type: Option<String>,
+    pub error: Option<String>,
+    pub expression: Option<String>,
+    // children: Option<Vec<CodeParameter>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
+pub struct Code {
+    pub id: String,
+    pub name: Option<String>,
+    pub path: Option<String>,
+    #[serde(rename = "createTime")]
+    pub create_time: Option<u64>,
+    #[serde(rename = "updateTime")]
+    pub update_time: Option<u64>,
+    #[serde(rename = "createBy")]
+    pub create_by: Option<String>,
+    #[serde(rename = "updateBy")]
+    pub update_by: Option<String>,
+    pub paths: Vec<String>,
+    pub options: Vec<String>,
+    pub properties: HashMap<String, Value>,
+    #[serde(rename = "groupId")]
+    pub group_id: Option<String>,
+    pub script: Option<String>,
+    pub method: Option<String>,
+    #[serde(default)]
+    pub yew_state: u64,
+    #[serde(default)]
+    pub parameters: Vec<CodeParameter>,
+    #[serde(rename = "responseBody")]
+    pub response_body: Option<String>,
+    #[serde(default)]
+    pub resp_headers: HashMap<String, String>,
+}
+
+#[derive(PartialEq, Properties)]
+pub struct CodesProviderProps {
+    pub children: Children,
+}
 
 impl CodeTab {
     pub fn name(&self) -> &str {
@@ -23,12 +115,6 @@ impl CodeTab {
     pub fn set_updated_state(&mut self, state: bool) {
         self.1 = state;
     }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct CodeTabs {
-    pub data: HashMap<String, CodeTab>,
-    pub order: Vec<String>,
 }
 
 impl CodeTabs {
@@ -54,38 +140,10 @@ impl CodeTabs {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct GroupNode {
-    path: String,
-    parent_id: String,
-}
-
-#[derive(Clone, Properties)]
-pub struct CodesState {
-    code: Code,
-    code_tabs: CodeTabs,
-    code_editors: HashMap<String, VNode>,
-    group_map: HashMap<String, GroupNode>,
-    need_update: u64,
-}
-
 impl PartialEq for CodesState {
     fn eq(&self, other: &Self) -> bool {
         self.need_update == other.need_update
     }
-}
-
-#[derive(Debug)]
-pub enum CodesStateMsg {
-    UpdateCode(Code, bool),
-    RemoveCode(String),
-    #[allow(dead_code)]
-    UpdateCodeTab(String, String),
-    ChangeCode(String),
-    EditorChanged(String),
-    SetNextCode(String),
-    SaveGroup(NodeInfo),
-    UpdateResp(String),
 }
 
 impl Reducible for CodesState {
@@ -145,7 +203,14 @@ impl Reducible for CodesState {
                 }
                 ns.group_map = group_map;
             }
-            CodesStateMsg::UpdateResp(result) => {
+            CodesStateMsg::UpdateResp(result, headers) => {
+                if let Some(headers) = headers {
+                    let map = &mut ns.code.resp_headers;
+                    map.clear();
+                    for (k, v) in headers.entries() {
+                        map.insert(k, v);
+                    }
+                }
                 ns.need_update += 1;
                 ns.code.response_body = Some(result);
             }
@@ -256,57 +321,6 @@ impl CodesState {
     }
 }
 
-#[derive(PartialEq, Properties)]
-pub struct CodesProviderProps {
-    pub children: Children,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
-pub struct Code {
-    pub id: String,
-    pub name: Option<String>,
-    pub path: Option<String>,
-    #[serde(rename = "createTime")]
-    pub create_time: Option<u64>,
-    #[serde(rename = "updateTime")]
-    pub update_time: Option<u64>,
-    #[serde(rename = "createBy")]
-    pub create_by: Option<String>,
-    #[serde(rename = "updateBy")]
-    pub update_by: Option<String>,
-    pub paths: Vec<String>,
-    pub options: Vec<String>,
-    pub properties: HashMap<String, Value>,
-    #[serde(rename = "groupId")]
-    pub group_id: Option<String>,
-    pub script: Option<String>,
-    pub method: Option<String>,
-    #[serde(default)]
-    pub yew_state: u64,
-    #[serde(default)]
-    pub parameters: Vec<CodeParameter>,
-    #[serde(rename = "responseBody")]
-    pub response_body: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct CodeParameter {
-    pub name: Option<String>,
-    pub value: Option<String>,
-    pub description: Option<String>,
-    pub required: bool,
-    pub data_type: Option<String>,
-    #[serde(rename = "type")]
-    pub type_: Option<String>,
-    #[serde(rename = "defaultValue")]
-    pub default_value: Option<String>,
-    #[serde(rename = "validateType")]
-    pub validate_type: Option<String>,
-    pub error: Option<String>,
-    pub expression: Option<String>,
-    // children: Option<Vec<CodeParameter>>,
-}
-
 impl Code {
     pub fn script(&self) -> String {
         let empty = "".to_string();
@@ -319,18 +333,16 @@ impl Code {
 }
 
 #[hook]
-pub(crate) fn use_codes() -> UseReducerHandle<CodesState> {
-    use_context::<UseReducerHandle<CodesState>>().unwrap()
+pub(crate) fn use_codes() -> CodesContext {
+    use_context::<CodesContext>().unwrap()
 }
-
-pub type CodesContext = UseReducerHandle<CodesState>;
 
 #[function_component(CodesProvider)]
 pub fn codes_provider(props: &CodesProviderProps) -> Html {
     let context = use_reducer(|| CodesState::new());
     html! {
-        <ContextProvider<UseReducerHandle<CodesState>> context={context}>
+        <ContextProvider<CodesContext> context={context}>
             {props.children.clone()}
-        </ContextProvider<UseReducerHandle<CodesState>>>
+        </ContextProvider<CodesContext>>
     }
 }

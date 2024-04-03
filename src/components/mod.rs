@@ -6,6 +6,5 @@ pub mod info;
 pub mod main_body;
 pub mod modal;
 pub mod response;
-pub mod theme;
 pub mod title;
 pub mod tooltip;

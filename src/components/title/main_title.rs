@@ -1,7 +1,7 @@
 use yew::prelude::*;
 
 use crate::{
-    components::title::buttons::{play_btn::PlayBtn, save_btn::SaveBtn},
+    components::title::buttons::{play_btn::PlayBtn, save_btn::SaveBtn, theme_btn::ThemeBtn},
     context::code_context::use_codes,
 };
 
@@ -19,7 +19,8 @@ pub fn main_title() -> Html {
         <div class="border border-neutral flex justify-between h-8">
            <div>{"title bar"}</div>
            <div>{code.path.as_ref().unwrap_or(&"/".to_string())}</div>
-           <div class="w-[100px] flex justify-between">
+           <div class="w-[120px] flex justify-between">
+                <ThemeBtn />
                 <PlayBtn {btn_classes} />
                 <SaveBtn {btn_classes} />
            </div>

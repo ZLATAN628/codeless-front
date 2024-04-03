@@ -25,10 +25,15 @@ pub fn play_btn(props: &BtnProps) -> Html {
         let code = code.clone();
         let code_context = code_context.clone();
         spawn_local(async move {
-            let result = backend::send_code(code, final_url).await.unwrap();
-            // update response editor
-            // code_context.update_response(result);
-            code_context.dispatch(CodesStateMsg::UpdateResp(result));
+            let (result, headers) = backend::send_code(code, final_url).await;
+            match result {
+                Ok(result) => {
+                    code_context.dispatch(CodesStateMsg::UpdateResp(result, headers));
+                }
+                Err(e) => {
+                    log!("fetch backend error", e.to_string());
+                }
+            }
         });
     });
     html! {

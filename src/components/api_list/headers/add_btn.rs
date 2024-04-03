@@ -37,7 +37,7 @@ pub fn add_btn(props: &BtnProps) -> Html {
 
 #[function_component(AddApiBtn)]
 pub fn add_api_btn() -> Html {
-    let confirm_click = Callback::from(|e: MouseEvent| {
+    let confirm_click = Callback::from(|_e: MouseEvent| {
         log!("confirm_click");
     });
     html! {

@@ -2,8 +2,7 @@ use gloo::console::log;
 use monaco::{
     api::{CodeEditorOptions, DisposableClosure, TextModel},
     sys::editor::{
-        BuiltinTheme, IEditorMinimapOptions, IModelContentChangedEvent,
-        IStandaloneEditorConstructionOptions,
+        IEditorMinimapOptions, IModelContentChangedEvent, IStandaloneEditorConstructionOptions,
     },
     yew::{CodeEditor, CodeEditorLink},
 };
@@ -14,7 +13,6 @@ fn get_options() -> CodeEditorOptions {
     CodeEditorOptions::default()
         .with_language("json".to_owned())
         .with_value("{}".to_owned())
-        .with_builtin_theme(BuiltinTheme::VsDark)
         .with_automatic_layout(true)
 }
 
@@ -108,7 +106,6 @@ impl Component for ResponseEditor {
             ctx.link()
                 .callback(|e: CodeEditorLink| ResponseEditorMessage::InitEditor(e))
         };
-
         html! {
             <>
                 <CodeEditor classes={"w-full h-full tab-content text-sm overflow-auto scroll-smooth"}

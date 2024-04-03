@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, Ok};
+use anyhow::anyhow;
+use gloo::net::http::Headers;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::context::code_context::{Code, CodeParameter};
 
-use self::fetch::{do_get_json, ResourceData};
+use self::fetch::{do_get_json, do_get_json_with_headers, ResourceData};
 
 mod fetch;
 
@@ -77,21 +78,37 @@ pub async fn get_code_by_id(id: &str) -> anyhow::Result<Code> {
     Ok(res.data)
 }
 
-pub async fn send_code(code: Code, mut url: String) -> anyhow::Result<String> {
+pub async fn send_code(code: Code, mut url: String) -> (anyhow::Result<String>, Option<Headers>) {
     let method = code.method.as_ref().expect("code method is None");
     match method.as_str() {
         "GET" => {
             url.push_str(&generate_get_params(&code.parameters));
-            let result = do_get_json::<Value>(&url, None).await?;
-            let result = serde_json::to_string(&result)?;
-            return Ok(result);
+            let mut headers = HashMap::new();
+            headers.insert(
+                "Magic-Request-Client-Id".to_string(),
+                "f32121313414".to_string(),
+            );
+            headers.insert("Magic-Request-Script-Id".to_string(), code.id.clone());
+
+            let (result, headers) = do_get_json_with_headers::<Value>(&url, Some(&headers)).await;
+            let result = match result {
+                Ok(result) => match serde_json::to_string(&result) {
+                    Ok(result) => Ok(result),
+                    Err(e) => Err(e.into()),
+                },
+                Err(e) => Err(e),
+            };
+            return (result, headers);
         }
         "POST" => {}
         _ => {
-            return Err(anyhow!(format!("unsupport http method: {}", &method)));
+            return (
+                Err(anyhow!(format!("unsupport http method: {}", &method))),
+                None,
+            );
         }
     };
-    Ok("".to_string())
+    (Ok("".to_string()), None)
 }
 
 fn generate_get_params(params: &Vec<CodeParameter>) -> String {

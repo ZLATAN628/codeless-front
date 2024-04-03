@@ -2,7 +2,10 @@ use monaco::api::TextModel;
 use yew::prelude::*;
 
 use crate::{
-    components::response::response_editor::ResponseEditor, context::code_context::use_codes,
+    components::response::{
+        api_response_header::ApiResponseHeader, response_editor::ResponseEditor,
+    },
+    context::code_context::use_codes,
 };
 
 #[derive(Properties, PartialEq)]
@@ -24,17 +27,16 @@ pub fn api_response(props: &ApiResponseProps) -> Html {
         <div
             class="flex flex-col justify-start h-full border-collapse border border-neutral" style={style}>
             <div role="tablist"
-                class="tabs tabs-md tabs-bordered text-sm bg-base-300  grid-rows-[48px_1fr] h-full w-full">
+                class="tabs tabs-md tabs-bordered text-sm bg-base-100  grid-rows-[48px_1fr] h-full w-full">
                 <input type="radio" name="my_tabs_5"
                     role="tab"
-                    class="tab" aria-label="响应body"
+                    class="tab" aria-label="响应体"
                     checked={true} />
                 <ResponseEditor text_model={(*model).clone()} />
 
                 <input type="radio" name="my_tabs_5" role="tab"
-                    class="tab" aria-label="响应header" />
-                <textarea role="tabpanel"
-                    class="textarea textarea-primary tab-content p-6 h-full rounded-box">{"Tab content 2"}</textarea>
+                    class="tab" aria-label="响应头" />
+                <ApiResponseHeader />
             </div>
         </div>
     }

@@ -2,8 +2,8 @@ use components::editor::keymap;
 use yew::prelude::*;
 
 use crate::{
-    components::{main_body::MainBody, theme::Theme, title::main_title::MainTitle},
-    context::code_context::CodesProvider,
+    components::{main_body::MainBody, title::main_title::MainTitle},
+    context::{code_context::CodesProvider, theme_context::ThemeProvider},
 };
 mod backend;
 mod common;
@@ -15,10 +15,10 @@ mod image;
 pub fn app() -> Html {
     html! {
         <CodesProvider>
-            <Theme>
+            <ThemeProvider>
                 <MainTitle />
                 <MainBody />
-            </Theme>
+            </ThemeProvider>
         </CodesProvider>
     }
 }

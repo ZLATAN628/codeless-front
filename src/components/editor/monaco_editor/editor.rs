@@ -1,17 +1,19 @@
 use monaco::{
     api::{CodeEditorOptions, DisposableClosure, TextModel},
-    sys::editor::{BuiltinTheme, IModelContentChangedEvent, IStandaloneEditorConstructionOptions},
-    yew::CodeEditor,
+    sys::editor::{IModelContentChangedEvent, IStandaloneEditorConstructionOptions},
+    yew::{CodeEditor, CodeEditorLink},
 };
 use yew::prelude::*;
 
-use crate::context::code_context::{CodesContext, CodesStateMsg};
+use crate::context::{
+    code_context::{CodesContext, CodesStateMsg},
+    theme_context::ThemeContext,
+};
 
 fn get_options() -> CodeEditorOptions {
     CodeEditorOptions::default()
         .with_language("sql".to_owned())
         .with_value("select * from users;".to_owned())
-        .with_builtin_theme(BuiltinTheme::VsDark)
         .with_automatic_layout(true)
 }
 
@@ -37,12 +39,17 @@ pub struct MonacoEditor {
     options: IStandaloneEditorConstructionOptions,
     model: TextModel,
     is_updated: bool,
+    #[allow(dead_code)]
+    theme_context: UseStateHandle<ThemeContext>,
+    _theme_context_listener: ContextHandle<UseStateHandle<ThemeContext>>,
     // listener drop 的时候 会 取消监听器的注册
     _content_change: DisposableClosure<dyn FnMut(IModelContentChangedEvent)>,
+    code_editor_link: CodeEditorLink,
 }
 
 pub enum MonacoEditorMessage {
     Update,
+    Init(CodeEditorLink),
 }
 
 impl Component for MonacoEditor {
@@ -57,13 +64,20 @@ impl Component for MonacoEditor {
             text_model.on_did_change_content(move |_e: IModelContentChangedEvent| {
                 link.send_message(MonacoEditorMessage::Update);
             });
+        let (theme_context, theme_context_listener) = ctx
+            .link()
+            .context::<UseStateHandle<ThemeContext>>(Callback::noop())
+            .unwrap();
         let options = get_options().to_sys_options();
         Self {
             id: id.to_string(),
             options,
             model: text_model.clone(),
             is_updated: false,
+            theme_context,
+            _theme_context_listener: theme_context_listener,
             _content_change: content_change,
+            code_editor_link: CodeEditorLink::default(),
         }
     }
 
@@ -80,6 +94,9 @@ impl Component for MonacoEditor {
                     code_context.dispatch(CodesStateMsg::EditorChanged(self.id.clone()));
                 }
             }
+            MonacoEditorMessage::Init(link) => {
+                self.code_editor_link = link;
+            }
         };
         false
     }
@@ -88,10 +105,13 @@ impl Component for MonacoEditor {
         false
     }
 
-    fn view(&self, _ctx: &Context<Self>) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let on_editor_created = ctx
+            .link()
+            .callback(|link: CodeEditorLink| MonacoEditorMessage::Init(link));
         html! {
             <CodeEditor classes={"h-full text-sm bg-base-100 overflow-auto scroll-smooth"}
-                options={self.options.clone()} model={ self.model.clone() } />
+                options={self.options.clone()} model={ self.model.clone() } on_editor_created={on_editor_created} />
         }
     }
 }
