@@ -6,7 +6,10 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 use yew::prelude::*;
 
-use crate::components::{api_editor_resp::ApiEditorResp, info::api_info::ApiInfo};
+use crate::{
+    components::{api_editor_resp::ApiEditorResp, info::api_info::ApiInfo},
+    context::code_context::{use_codes, CodesStateMsg},
+};
 
 #[function_component(ApiDisplay)]
 pub fn api_display() -> Html {
@@ -62,8 +65,22 @@ pub fn api_display() -> Html {
         }
     });
 
+    let code_context = use_codes();
+
+    let key_down = Callback::from(move |e: KeyboardEvent| {
+        let key_code = e.code();
+        // 处理快捷键
+        if key_code == "KeyS" && e.ctrl_key() {
+            code_context.dispatch(CodesStateMsg::SaveCode);
+            e.prevent_default();
+        } else if key_code == "KeyQ" && e.ctrl_key() {
+            code_context.dispatch(CodesStateMsg::TestCode(code_context.dispatcher()));
+            e.prevent_default()
+        }
+    });
+
     html! {
-        <div ref={div_node} class="flex flex-col h-screen w-screen">
+        <div ref={div_node} class="flex flex-col h-screen w-screen" onkeydown={key_down}>
             <ApiEditorResp height={*top_height}/>
             <div onmousedown={mouse_down} class="cursor-row-resize border-x border-neutral border-coll border-collapse bg-base-200"><h2>{"\u{00a0}\u{00a0}接口信息"}</h2> </div>
             <ApiInfo height={(*bottom_height).clone()}/>

@@ -10,45 +10,45 @@ use yew::prelude::*;
 use yew::virtual_dom::VNode;
 
 use crate::components::api_list::api_select::DESKTOP_HEADER_BTN_CLASSES;
-use crate::context::code_context::{CodeParameter, CodeSetProps, CodesContext, CodesStateMsg};
+use crate::context::code_context::{CodeHeaders, CodeSetProps, CodesContext, CodesStateMsg};
 use crate::image::{AddSvg2, SubSvg2};
 use crate::set_code;
 
 #[derive(Properties, Clone, PartialEq)]
-pub struct ApiParametersProps {
+pub struct ApiHeadersProps {
     /// 是否新增接口页
     pub is_new: bool,
-    pub params: Option<Vec<CodeParameter>>,
+    pub headers: Option<Vec<CodeHeaders>>,
     pub readonly: bool,
 }
 
-pub struct ApiParameters {
-    cur_params: Rc<RefCell<Vec<CodeParameter>>>,
+pub struct ApiHeaders {
+    cur_headers: Rc<RefCell<Vec<CodeHeaders>>>,
     is_new: bool,
     readonly: bool,
     code_context: CodesContext,
     _code_context_listener: ContextHandle<CodesContext>,
 }
 
-pub enum ApiParametersMsg {
+pub enum ApiHeadersMsg {
     Add,
     Sub(i32),
     Change,
 }
 
-impl Component for ApiParameters {
-    type Message = ApiParametersMsg;
-    type Properties = ApiParametersProps;
+impl Component for ApiHeaders {
+    type Message = ApiHeadersMsg;
+    type Properties = ApiHeadersProps;
 
     fn create(ctx: &Context<Self>) -> Self {
         let props = ctx.props();
-        let ApiParametersProps {
+        let ApiHeadersProps {
             is_new,
-            params,
+            headers,
             readonly,
         } = props;
-        let params = match params.as_ref() {
-            Some(params) => params.clone(),
+        let headers = match headers.as_ref() {
+            Some(headers) => headers.clone(),
             None => Vec::new(),
         };
         let (code_context, handle) = ctx
@@ -56,7 +56,7 @@ impl Component for ApiParameters {
             .context::<CodesContext>(Callback::noop())
             .unwrap();
         Self {
-            cur_params: Rc::new(RefCell::new(params)),
+            cur_headers: Rc::new(RefCell::new(headers)),
             is_new: *is_new,
             readonly: *readonly,
             code_context,
@@ -66,50 +66,50 @@ impl Component for ApiParameters {
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            ApiParametersMsg::Add => {
+            ApiHeadersMsg::Add => {
                 if self.readonly {
                     return false;
                 }
-                let mut params = self.cur_params.borrow_mut();
-                save_parameters(&mut params, self.is_new);
-                params.push(CodeParameter::default());
+                let mut headers = self.cur_headers.borrow_mut();
+                save_parameters(&mut headers, self.is_new);
+                headers.push(CodeHeaders::default());
             }
-            ApiParametersMsg::Sub(index) => {
+            ApiHeadersMsg::Sub(index) => {
                 if self.readonly {
                     return false;
                 }
-                let mut params = self.cur_params.borrow_mut();
-                save_parameters(&mut params, self.is_new);
-                if !params.is_empty() {
+                let mut headers = self.cur_headers.borrow_mut();
+                save_parameters(&mut headers, self.is_new);
+                if !headers.is_empty() {
                     if index == -1 {
-                        params.pop();
+                        headers.pop();
                     } else {
-                        params.remove(index as usize);
+                        headers.remove(index as usize);
                     }
                 }
             }
-            ApiParametersMsg::Change => {
-                let mut params = self.cur_params.borrow_mut();
-                save_parameters(&mut params, self.is_new);
+            ApiHeadersMsg::Change => {
+                let mut headers = self.cur_headers.borrow_mut();
+                save_parameters(&mut headers, self.is_new);
                 let code_context = &self.code_context;
-                let params = (*params).clone();
-                set_code!(code_context => Parameters(params));
+                let headers = (*headers).clone();
+                set_code!(code_context => Headers(headers));
             }
         }
         true
     }
 
     fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
-        let ApiParametersProps {
+        let ApiHeadersProps {
             is_new: _,
-            params,
+            headers,
             readonly,
         } = ctx.props();
         self.readonly = *readonly;
-        let mut cp = self.cur_params.borrow_mut();
-        match params.as_ref() {
-            Some(params) => {
-                *cp = params.clone();
+        let mut cp = self.cur_headers.borrow_mut();
+        match headers.as_ref() {
+            Some(headers) => {
+                *cp = headers.clone();
             }
             None => {
                 *cp = Vec::new();
@@ -126,7 +126,7 @@ impl Component for ApiParameters {
             classes = "flex flex-row w-full text-sm";
         };
 
-        let add_click = ctx.link().callback(|_| ApiParametersMsg::Add);
+        let add_click = ctx.link().callback(|_| ApiHeadersMsg::Add);
 
         let is_new = self.is_new;
         let sub_click = ctx.link().callback(move |_| {
@@ -137,12 +137,12 @@ impl Component for ApiParameters {
                     -1
                 }
             };
-            ApiParametersMsg::Sub(index)
+            ApiHeadersMsg::Sub(index)
         });
         // self.cur_params.
-        let params = self.cur_params.borrow();
-        let onchange = ctx.link().callback(|_e: Event| ApiParametersMsg::Change);
-        let param_html = generate_parameters(params, onchange);
+        let params = self.cur_headers.borrow();
+        let onchange = ctx.link().callback(|_e: Event| ApiHeadersMsg::Change);
+        let param_html = generate_headers(params, onchange);
         let id = get_dom_id(is_new);
 
         html! {
@@ -185,9 +185,9 @@ impl Component for ApiParameters {
     }
 }
 
-fn generate_parameters(parameters: Ref<'_, Vec<CodeParameter>>, onchange: Callback<Event>) -> Html {
+fn generate_headers(headers: Ref<'_, Vec<CodeHeaders>>, onchange: Callback<Event>) -> Html {
     let mut result: Vec<VNode> = Vec::new();
-    for param in parameters.iter() {
+    for param in headers.iter() {
         let node = html! {
             <div class="flex flex-row w-full params">
                 <div
@@ -284,13 +284,13 @@ fn get_params_node(node: Option<Node>) -> Result<Option<HtmlElement>, JsValue> {
 
 fn get_dom_id(is_new: bool) -> &'static str {
     if is_new {
-        "api_parameters_new"
+        "api_headers_new"
     } else {
-        "api_parameters"
+        "api_headers"
     }
 }
 
-fn save_parameters(params: &mut Vec<CodeParameter>, is_new: bool) {
+fn save_parameters(params: &mut Vec<CodeHeaders>, is_new: bool) {
     let id = get_dom_id(is_new);
     let nodes = document().get_element_by_id(id).unwrap();
     let children = nodes.child_nodes();

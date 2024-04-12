@@ -1,8 +1,6 @@
-use gloo::console::log;
-use yew::{platform::spawn_local, prelude::*};
+use yew::prelude::*;
 
 use crate::{
-    backend,
     components::{title::main_title::BtnProps, tooltip::Tooltip},
     context::code_context::{use_codes, CodesStateMsg},
     image::PlaySvg,
@@ -12,29 +10,8 @@ use crate::{
 pub fn play_btn(props: &BtnProps) -> Html {
     let code_context = use_codes();
     let callback = Callback::from(move |_e: MouseEvent| {
-        let code = code_context.current_code();
-        let final_url = code_context.get_final_path(
-            code.path.as_ref().unwrap_or(&"".to_string()),
-            code.group_id.as_ref().unwrap(),
-        );
-        log!("final_url: {}", &final_url);
-        // TODO:
-        // save file
-
-        // call backend api
-        let code = code.clone();
-        let code_context = code_context.clone();
-        spawn_local(async move {
-            let (result, headers) = backend::send_code(code, final_url).await;
-            match result {
-                Ok(result) => {
-                    code_context.dispatch(CodesStateMsg::UpdateResp(result, headers));
-                }
-                Err(e) => {
-                    log!("fetch backend error", e.to_string());
-                }
-            }
-        });
+        let dispatcher = code_context.dispatcher();
+        code_context.dispatch(CodesStateMsg::TestCode(dispatcher));
     });
     html! {
         <Tooltip tip="运行">

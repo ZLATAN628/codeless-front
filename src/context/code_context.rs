@@ -1,15 +1,19 @@
 use std::{collections::HashMap, rc::Rc};
 
 use gloo::{
+    console::log,
     net::http::Headers,
-    storage::{LocalStorage, Storage},
+    storage::{SessionStorage, Storage},
 };
 use monaco::api::TextModel;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use yew::{prelude::*, virtual_dom::VNode};
+use yew::{platform::spawn_local, prelude::*, virtual_dom::VNode};
 
-use crate::{backend::NodeInfo, components::editor::monaco_editor::editor::MonacoEditor};
+use crate::{
+    backend::{self, NodeInfo},
+    components::editor::monaco_editor::editor::MonacoEditor,
+};
 
 pub type CodesContext = UseReducerHandle<CodesState>;
 
@@ -34,10 +38,9 @@ pub struct CodesState {
     code_tabs: CodeTabs,
     code_editors: HashMap<String, VNode>,
     group_map: HashMap<String, GroupNode>,
-    need_update: u64,
+    pub need_update: u64,
 }
 
-#[derive(Debug)]
 pub enum CodesStateMsg {
     UpdateCode(Code, bool),
     RemoveCode(String),
@@ -48,6 +51,20 @@ pub enum CodesStateMsg {
     SetNextCode(String),
     SaveGroup(NodeInfo),
     UpdateResp(String, Option<Headers>),
+    SetCurCodeProp(CodeSetProps),
+    /// backend service
+    SaveCode,
+    TestCode(UseReducerDispatcher<CodesState>),
+}
+
+#[derive(Debug)]
+pub enum CodeSetProps {
+    Path(String),
+    Name(String),
+    Method(String),
+    Parameters(Vec<CodeParameter>),
+    Script(String),
+    Headers(Vec<CodeHeaders>),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
@@ -67,6 +84,9 @@ pub struct CodeParameter {
     pub expression: Option<String>,
     // children: Option<Vec<CodeParameter>>,
 }
+
+/// same with `CodeParameter`
+pub type CodeHeaders = CodeParameter;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
 pub struct Code {
@@ -92,6 +112,8 @@ pub struct Code {
     pub yew_state: u64,
     #[serde(default)]
     pub parameters: Vec<CodeParameter>,
+    #[serde(default)]
+    pub headers: Vec<CodeHeaders>,
     #[serde(rename = "responseBody")]
     pub response_body: Option<String>,
     #[serde(default)]
@@ -155,7 +177,7 @@ impl Reducible for CodesState {
                 if save {
                     let key = &code.id;
                     let value = serde_json::to_string(&code).unwrap();
-                    LocalStorage::set(key, value).unwrap();
+                    SessionStorage::set(key, value).unwrap();
                     // 创建代码编辑器实例
                     ns.generate_code_editor(key, &code.script());
                 }
@@ -166,13 +188,15 @@ impl Reducible for CodesState {
             }
             CodesStateMsg::RemoveCode(id) => {
                 ns.code_tabs.remove_tab(&id);
-                LocalStorage::delete(&id);
+                SessionStorage::delete(&id);
             }
             CodesStateMsg::UpdateCodeTab(id, name) => {
                 ns.put_code_tabs(&id, &name);
             }
             CodesStateMsg::ChangeCode(id) => {
                 if let Some(code) = ns.load_code(&id) {
+                    // TODO: 保存当前code的修改信息
+                    // ns.save_code(&ns.code);
                     ns.code = code;
                     ns.need_update += 1;
                 }
@@ -214,6 +238,52 @@ impl Reducible for CodesState {
                 ns.need_update += 1;
                 ns.code.response_body = Some(result);
             }
+            CodesStateMsg::SetCurCodeProp(props) => match props {
+                CodeSetProps::Path(path) => ns.code.path = Some(path),
+                CodeSetProps::Name(name) => ns.code.name = Some(name),
+                CodeSetProps::Method(method) => ns.code.method = Some(method),
+                CodeSetProps::Script(script) => ns.code.script = Some(script),
+                CodeSetProps::Parameters(params) => ns.code.parameters = params,
+                CodeSetProps::Headers(headers) => ns.code.headers = headers,
+            },
+            CodesStateMsg::SaveCode => {
+                let code = ns.code.clone();
+                if code.id.is_empty() {
+                    return self;
+                }
+                spawn_local(async move {
+                    match backend::save_code(code).await {
+                        Ok(_id) => {}
+                        Err(e) => {
+                            log!("fetch backend save code error", e.to_string());
+                        }
+                    }
+                })
+            }
+            CodesStateMsg::TestCode(dispatcher) => {
+                let code = ns.code.clone();
+                if code.id().is_empty() {
+                    return self;
+                }
+                let final_url = ns.get_final_path(
+                    code.path.as_ref().unwrap_or(&"".to_string()),
+                    code.group_id.as_ref().unwrap(),
+                );
+                log!("final_url: {}", &final_url);
+                // TODO:
+                // save file
+                spawn_local(async move {
+                    let (result, headers) = backend::send_code(code, final_url).await;
+                    match result {
+                        Ok(result) => {
+                            dispatcher.dispatch(CodesStateMsg::UpdateResp(result, headers));
+                        }
+                        Err(e) => {
+                            log!("fetch backend error", e.to_string());
+                        }
+                    }
+                });
+            }
         };
         self
     }
@@ -244,7 +314,7 @@ impl CodesState {
     }
 
     pub fn load_code(&self, id: &str) -> Option<Code> {
-        match LocalStorage::get::<String>(id) {
+        match SessionStorage::get::<String>(id) {
             Ok(value) => {
                 let code: Code = serde_json::from_str(&value).unwrap();
                 Some(code)
@@ -266,7 +336,7 @@ impl CodesState {
     }
 
     pub fn clear_storage(&self) {
-        LocalStorage::clear();
+        SessionStorage::clear();
     }
 
     pub fn is_update_code(&self, id: &str) -> bool {
@@ -345,4 +415,11 @@ pub fn codes_provider(props: &CodesProviderProps) -> Html {
             {props.children.clone()}
         </ContextProvider<CodesContext>>
     }
+}
+
+#[macro_export]
+macro_rules! set_code {
+    ($context: tt => $ident: ident($item: expr)) => {
+        $context.dispatch(CodesStateMsg::SetCurCodeProp(CodeSetProps::$ident($item)));
+    };
 }

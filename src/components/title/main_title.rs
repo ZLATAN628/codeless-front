@@ -17,7 +17,7 @@ pub fn main_title() -> Html {
     let code = code_context.current_code();
     html! {
         <div class="border border-neutral flex justify-between h-8">
-           <div>{"title bar"}</div>
+           <div>{"codeless"}</div>
            <div>{code.path.as_ref().unwrap_or(&"/".to_string())}</div>
            <div class="w-[120px] flex justify-between">
                 <ThemeBtn />

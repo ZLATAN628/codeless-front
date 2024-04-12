@@ -29,6 +29,7 @@ lazy_static! {
         RwLock::new(vec![None; 256]);
 }
 
+#[allow(dead_code)]
 pub fn init() {
     let mut key_map = KEY_MAP.write().unwrap();
     key_map[8] = Some(Arc::new(BackSpaceHandler::default()));

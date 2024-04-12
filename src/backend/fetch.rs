@@ -1,5 +1,6 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
+use wasm_bindgen::JsValue;
 
 use gloo::{
     console::log,
@@ -72,4 +73,41 @@ where
     };
 
     (result, Some(resp.headers()))
+}
+
+pub async fn do_post<F>(
+    url: &str,
+    body: F,
+    headers: Option<&HashMap<String, String>>,
+) -> anyhow::Result<Response>
+where
+    F: Into<JsValue>,
+{
+    let mut req = Request::post(url);
+    if let Some(headers) = headers {
+        for (k, v) in headers.iter() {
+            req = req.header(k, v);
+        }
+    }
+    let res = req.body(body)?.send().await?;
+    Ok(res)
+}
+
+pub async fn do_post_json<T, F>(
+    url: &str,
+    body: F,
+    headers: Option<&HashMap<String, String>>,
+) -> anyhow::Result<GenericResponse<T>>
+where
+    T: DeserializeOwned,
+    F: Into<JsValue>,
+{
+    let js_result = do_post(url, body, headers).await?;
+    match js_result.json::<GenericResponse<T>>().await {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            log!(format!("{:?}", e));
+            Err(e.into())
+        }
+    }
 }

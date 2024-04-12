@@ -1,15 +1,21 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
-use gloo::net::http::Headers;
+use gloo::{net::http::Headers, utils::window};
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::context::code_context::{Code, CodeParameter};
 
-use self::fetch::{do_get_json, do_get_json_with_headers, ResourceData};
+use self::fetch::{do_get_json, do_get_json_with_headers, do_post_json, ResourceData};
 
 mod fetch;
+
+lazy_static! {
+    pub static ref ORIGIN: String = window().location().origin().unwrap();
+    pub static ref API_ORIGIN: String = String::from("http://172.16.141.158:9999/");
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NodeInfo {
@@ -49,8 +55,8 @@ pub struct Node {
  */
 pub async fn get_wd_resource() -> anyhow::Result<ResourceData> {
     // TODO: url
-    let url = "http://172.16.141.158:9999/magic/web/wdResource";
-    let res = do_get_json(url, None).await?;
+    let url = format!("{}magic/web/wdResource", *API_ORIGIN);
+    let res = do_get_json(&url, None).await?;
     if res.code != 1 {
         return Err(anyhow::Error::msg(res.message));
     }
@@ -67,10 +73,7 @@ pub async fn get_api_info() -> anyhow::Result<NodeInfo> {
 }
 
 pub async fn get_code_by_id(id: &str) -> anyhow::Result<Code> {
-    let url = format!(
-        "http://172.16.141.158:9999/magic/web/resource/file/wdhis:{}",
-        id
-    );
+    let url = format!("{}magic/web/resource/file/wdhis:{}", *API_ORIGIN, id);
     let res = do_get_json::<Code>(&url, None).await?;
     if res.code != 1 {
         return Err(anyhow::Error::msg(res.message));
@@ -109,6 +112,14 @@ pub async fn send_code(code: Code, mut url: String) -> (anyhow::Result<String>, 
         }
     };
     (Ok("".to_string()), None)
+}
+
+pub async fn save_code(code: Code) -> anyhow::Result<String> {
+    let url = format!("{}magic/web/wdResource/file/api/save", *API_ORIGIN);
+    let param = serde_json::to_string(&code)?;
+    let data = do_post_json::<String, String>(&url, param, None).await?;
+    // code id
+    Ok(data.data)
 }
 
 fn generate_get_params(params: &Vec<CodeParameter>) -> String {

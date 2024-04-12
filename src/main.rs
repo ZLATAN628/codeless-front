@@ -1,4 +1,3 @@
-use components::editor::keymap;
 use yew::prelude::*;
 
 use crate::{
@@ -29,5 +28,5 @@ pub fn main() {
 }
 
 fn init() {
-    keymap::init();
+    // keymap::init();
 }

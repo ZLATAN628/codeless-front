@@ -90,7 +90,7 @@ pub fn add_api_btn() -> Html {
                             <div class="label">
                                 <span class="label-text">{"接口参数"}</span>
                             </div>
-                            <ApiParameters is_new={true} params={None}/>
+                            <ApiParameters is_new={true} params={None} readonly={false}/>
                         </label>
                     </div>
 

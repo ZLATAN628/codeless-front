@@ -1,13 +1,17 @@
 use monaco::{
     api::{CodeEditorOptions, DisposableClosure, TextModel},
-    sys::editor::{IModelContentChangedEvent, IStandaloneEditorConstructionOptions},
+    sys::{
+        editor::{IModelContentChangedEvent, IStandaloneEditorConstructionOptions},
+        IDisposable,
+    },
     yew::{CodeEditor, CodeEditorLink},
 };
+use wasm_bindgen::{closure::Closure, JsCast};
 use yew::prelude::*;
 
-use crate::context::{
-    code_context::{CodesContext, CodesStateMsg},
-    theme_context::ThemeContext,
+use crate::{
+    context::code_context::{CodeSetProps, CodesContext, CodesStateMsg},
+    set_code,
 };
 
 fn get_options() -> CodeEditorOptions {
@@ -39,17 +43,19 @@ pub struct MonacoEditor {
     options: IStandaloneEditorConstructionOptions,
     model: TextModel,
     is_updated: bool,
-    #[allow(dead_code)]
-    theme_context: UseStateHandle<ThemeContext>,
-    _theme_context_listener: ContextHandle<UseStateHandle<ThemeContext>>,
+    code_context: CodesContext,
+    _code_context_handle: ContextHandle<CodesContext>,
     // listener drop 的时候 会 取消监听器的注册
     _content_change: DisposableClosure<dyn FnMut(IModelContentChangedEvent)>,
     code_editor_link: CodeEditorLink,
+    _onblue: Option<IDisposable>,
+    _blue_closure: Option<Closure<dyn FnMut()>>,
 }
 
 pub enum MonacoEditorMessage {
     Update,
     Init(CodeEditorLink),
+    SetScript(String),
 }
 
 impl Component for MonacoEditor {
@@ -64,9 +70,9 @@ impl Component for MonacoEditor {
             text_model.on_did_change_content(move |_e: IModelContentChangedEvent| {
                 link.send_message(MonacoEditorMessage::Update);
             });
-        let (theme_context, theme_context_listener) = ctx
+        let (code_context, code_context_handle) = ctx
             .link()
-            .context::<UseStateHandle<ThemeContext>>(Callback::noop())
+            .context::<CodesContext>(Callback::noop())
             .unwrap();
         let options = get_options().to_sys_options();
         Self {
@@ -74,10 +80,12 @@ impl Component for MonacoEditor {
             options,
             model: text_model.clone(),
             is_updated: false,
-            theme_context,
-            _theme_context_listener: theme_context_listener,
+            code_context,
+            _code_context_handle: code_context_handle,
             _content_change: content_change,
             code_editor_link: CodeEditorLink::default(),
+            _blue_closure: None,
+            _onblue: None,
         }
     }
 
@@ -86,16 +94,32 @@ impl Component for MonacoEditor {
             MonacoEditorMessage::Update => {
                 if !self.is_updated {
                     self.is_updated = true;
-                    let (code_context, _) = ctx
-                        .link()
-                        .context::<CodesContext>(Callback::noop())
-                        .unwrap();
                     // code_context.did_change_editor(self.id.clone());
-                    code_context.dispatch(CodesStateMsg::EditorChanged(self.id.clone()));
+                    self.code_context
+                        .dispatch(CodesStateMsg::EditorChanged(self.id.clone()));
                 }
             }
             MonacoEditorMessage::Init(link) => {
                 self.code_editor_link = link;
+                self.code_editor_link.with_editor(|editor| {
+                    let raw_editor = editor.as_ref();
+                    let editor_link = self.code_editor_link.clone();
+                    let link = ctx.link().clone();
+                    let closure = Closure::wrap(Box::new(move || {
+                        editor_link.with_editor(|editor| {
+                            let value = editor.as_ref().get_value(None);
+                            link.send_message(MonacoEditorMessage::SetScript(value));
+                        });
+                    }) as Box<dyn FnMut()>);
+                    let onblue = raw_editor
+                        .on_did_blur_editor_widget(JsCast::unchecked_ref(closure.as_ref()));
+                    self._onblue = Some(onblue);
+                    self._blue_closure = Some(closure);
+                });
+            }
+            MonacoEditorMessage::SetScript(script) => {
+                let code_context = &self.code_context;
+                set_code!(code_context => Script(script));
             }
         };
         false

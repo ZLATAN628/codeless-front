@@ -1,4 +1,9 @@
-use crate::components::info::parameters::ApiParameters;
+use crate::{
+    components::info::{headers::ApiHeaders, parameters::ApiParameters},
+    context::code_context::{CodeSetProps, CodesStateMsg},
+    set_code,
+};
+use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::{prelude::*, virtual_dom::VNode};
 
 use crate::context::code_context::use_codes;
@@ -16,6 +21,26 @@ pub fn api_info(props: &ApiInfoProps) -> Html {
     let code_context = use_codes();
     let code = code_context.current_code();
     let params = code.parameters.clone();
+    let headers = code.headers.clone();
+    let readonly = code.id.is_empty();
+
+    let code_context_clone = code_context.clone();
+    let name_change = Callback::from(move |e: Event| {
+        let element = e.target_unchecked_into::<HtmlInputElement>();
+        set_code!(code_context_clone => Name(element.value()));
+    });
+
+    let code_context_clone = code_context.clone();
+    let path_change = Callback::from(move |e: Event| {
+        let element = e.target_unchecked_into::<HtmlInputElement>();
+        set_code!(code_context_clone => Path(element.value()));
+    });
+
+    let code_context_clone = code_context.clone();
+    let method_change = Callback::from(move |e: Event| {
+        let element = e.target_unchecked_into::<HtmlSelectElement>();
+        set_code!(code_context_clone => Method(element.value()));
+    });
     // let parameters = code.parameters.clone();
     // let parameters: UseStateHandle<Vec<CodeParameter>> = use_state(move || parameters);
     html! {
@@ -26,7 +51,7 @@ pub fn api_info(props: &ApiInfoProps) -> Html {
                 <div class="flex w-[10%] justify-around">
                     <div class="w-[65px]">{"请求方法\u{00a0}"}</div>
                     <select
-                        class="select select-bordered select-xs w-[calc(100%-80px)]">
+                        class="select select-bordered select-xs w-[calc(100%-80px)]" disabled={readonly} onchange={method_change}>
                         {
                             {
                                 let mut result: Vec<VNode> = Vec::new();
@@ -51,31 +76,48 @@ pub fn api_info(props: &ApiInfoProps) -> Html {
                 <div class="flex w-[19%]">
                     <div class="w-[80px]">{"接口名称"}</div>
                     <input type="text"
-                        class="input input-bordered input-xs w-[calc(100%-80px)]" value={code.name.as_ref().unwrap_or(&"".to_string()).to_string()} />
+                        class="input input-bordered input-xs w-[calc(100%-80px)]" readonly={readonly}
+                        value={code.name.as_ref().unwrap_or(&"".to_string()).to_string()}
+                        onchange={name_change}/>
                 </div>
                 <div class="flex w-[70%]">
                     <div class="w-[70px]">{"接口路径"}</div>
                     <input type="text"
-                        class="input input-bordered input-xs w-[calc(100%-70px)]" value={code.path.as_ref().unwrap_or(&"".to_string()).to_string()}/>
+                        class="input input-bordered input-xs w-[calc(100%-70px)]" readonly={readonly}
+                        value={code.path.as_ref().unwrap_or(&"".to_string()).to_string()}
+                        onchange={path_change}/>
                 </div>
             </div>
             <div role="tablist"
                 class="tabs tabs-md tabs-bordered h-full grid-rows-[46px_1fr] w-full overflow-hidden">
                 <input type="radio" name="my_tabs_3" role="tab"
                     class="tab" aria-label="请求头" />
-            <div role="tabpanel"
-                class="tab-content bg-base-100 border-base-300 p-6 h-full w-full">{"Tab content 1"}</div>
-            <input type="radio" name="my_tabs_3" role="tab"
-                class="tab" aria-label="请求参数"
-                checked={true} />
-            <div
-                class="tab-content bg-base-100 border-base-300 h-full w-full">
-                <ApiParameters is_new={false} params={Some(params)}/>
-            </div>
-            <input type="radio" name="my_tabs_3" role="tab"
-                class="tab" aria-label="响应模板" />
-            <div role="tabpanel"
-                class="tab-content bg-base-100 border-base-300 p-6 h-full ">{"Tab content 3"}</div>
+                <div
+                    class="tab-content bg-base-100 border-base-300 h-full w-full">
+                    <ApiHeaders is_new={false} headers={Some(headers)} readonly={code.id.is_empty()}/>
+                </div>
+
+                <input type="radio" name="my_tabs_3" role="tab"
+                    class="tab" aria-label="请求参数"
+                    checked={true} />
+                <div
+                    class="tab-content bg-base-100 border-base-300 h-full w-full">
+                    <ApiParameters is_new={false} params={Some(params)} readonly={code.id.is_empty()}/>
+                </div>
+
+                <input type="radio" name="my_tabs_3" role="tab"
+                    class="tab" aria-label="请求Body" />
+                <div role="tabpanel"
+                    class="tab-content bg-base-100 border-base-300 p-6 h-full ">
+                    {"Tab content 3"}
+                </div>
+
+                <input type="radio" name="my_tabs_3" role="tab"
+                    class="tab" aria-label="响应模板" />
+                <div role="tabpanel"
+                    class="tab-content bg-base-100 border-base-300 p-6 h-full ">
+                    {"Tab content 3"}
+                </div>
             </div>
         </div>
     }
