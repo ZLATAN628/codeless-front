@@ -17,13 +17,13 @@ lazy_static! {
     pub static ref API_ORIGIN: String = String::from("http://172.16.141.158:9999/");
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct NodeInfo {
     pub node: Node,
     pub children: Vec<NodeInfo>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Node {
     pub id: Option<String>,
     pub name: Option<String>,

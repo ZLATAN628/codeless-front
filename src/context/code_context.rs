@@ -11,7 +11,7 @@ use serde_json::Value;
 use yew::{platform::spawn_local, prelude::*, virtual_dom::VNode};
 
 use crate::{
-    backend::{self, NodeInfo},
+    backend::{self, NodeInfo, API_ORIGIN},
     components::editor::monaco_editor::editor::MonacoEditor,
 };
 
@@ -38,6 +38,7 @@ pub struct CodesState {
     code_tabs: CodeTabs,
     code_editors: HashMap<String, VNode>,
     group_map: HashMap<String, GroupNode>,
+    node_info: NodeInfo,
     pub need_update: u64,
 }
 
@@ -52,8 +53,10 @@ pub enum CodesStateMsg {
     SaveGroup(NodeInfo),
     UpdateResp(String, Option<Headers>),
     SetCurCodeProp(CodeSetProps),
+    SaveCodeFront(Code, bool),
     /// backend service
-    SaveCode,
+    SaveCode(UseReducerDispatcher<CodesState>),
+    InsertNewCode(Code, UseReducerDispatcher<CodesState>),
     TestCode(UseReducerDispatcher<CodesState>),
 }
 
@@ -174,15 +177,7 @@ impl Reducible for CodesState {
         let ns = Rc::make_mut(&mut self);
         match action {
             CodesStateMsg::UpdateCode(code, save) => {
-                if save {
-                    let key = &code.id;
-                    let value = serde_json::to_string(&code).unwrap();
-                    SessionStorage::set(key, value).unwrap();
-                    // 创建代码编辑器实例
-                    ns.generate_code_editor(key, &code.script());
-                }
-                ns.put_code_tabs(&code.id, &code.name.as_ref().unwrap_or(&"".to_string()));
-                let ns = Rc::make_mut(&mut self);
+                ns.update_code(&code, save, save);
                 ns.code = code;
                 ns.need_update += 1;
             }
@@ -225,6 +220,8 @@ impl Reducible for CodesState {
                 for n in node.children.iter() {
                     ns.extract_group_info(n, &mut group_map);
                 }
+                ns.need_update += 1;
+                ns.node_info = node;
                 ns.group_map = group_map;
             }
             CodesStateMsg::UpdateResp(result, headers) => {
@@ -246,28 +243,55 @@ impl Reducible for CodesState {
                 CodeSetProps::Parameters(params) => ns.code.parameters = params,
                 CodeSetProps::Headers(headers) => ns.code.headers = headers,
             },
-            CodesStateMsg::SaveCode => {
+            CodesStateMsg::SaveCodeFront(code, create) => {
+                if let Some(tab) = ns.code_tabs.get_tab_mut(&code.id) {
+                    tab.set_updated_state(false);
+                }
+                ns.update_code(&code, true, create);
+                ns.need_update += 1;
+            }
+            CodesStateMsg::SaveCode(dispatcher) => {
                 let code = ns.code.clone();
                 if code.id.is_empty() {
                     return self;
                 }
                 spawn_local(async move {
+                    let code_clone = code.clone();
                     match backend::save_code(code).await {
-                        Ok(_id) => {}
+                        Ok(_id) => {
+                            dispatcher.dispatch(CodesStateMsg::SaveCodeFront(code_clone, false))
+                        }
                         Err(e) => {
                             log!("fetch backend save code error", e.to_string());
                         }
                     }
                 })
             }
+            CodesStateMsg::InsertNewCode(code, dispatcher) => spawn_local(async move {
+                let mut code_clone = code.clone();
+                match backend::save_code(code).await {
+                    Ok(id) => {
+                        code_clone.id = id;
+                        dispatcher.dispatch(CodesStateMsg::SaveCodeFront(code_clone, true))
+                    }
+                    Err(e) => {
+                        log!("fetch backend save code error", e.to_string());
+                    }
+                }
+            }),
             CodesStateMsg::TestCode(dispatcher) => {
                 let code = ns.code.clone();
                 if code.id().is_empty() {
                     return self;
                 }
-                let final_url = ns.get_final_path(
-                    code.path.as_ref().unwrap_or(&"".to_string()),
-                    code.group_id.as_ref().unwrap(),
+
+                let final_url = format!(
+                    "{}{}",
+                    *API_ORIGIN,
+                    ns.get_final_path(
+                        code.path.as_ref().unwrap_or(&"".to_string()),
+                        code.group_id.as_ref().unwrap(),
+                    )
                 );
                 log!("final_url: {}", &final_url);
                 // TODO:
@@ -299,8 +323,22 @@ impl CodesState {
             },
             code_editors: HashMap::new(),
             group_map: HashMap::new(),
+            node_info: NodeInfo::default(),
             need_update: 0,
         }
+    }
+
+    pub fn update_code(&mut self, code: &Code, save: bool, create: bool) {
+        if save {
+            let key = &code.id;
+            let value = serde_json::to_string(&code).unwrap();
+            SessionStorage::set(key, value).unwrap();
+            // 创建代码编辑器实例
+            if create {
+                self.generate_code_editor(key, &code.script());
+            }
+        }
+        self.put_code_tabs(&code.id, &code.name.as_ref().unwrap_or(&"".to_string()));
     }
 
     pub fn put_code_tabs(&mut self, id: &str, name: &str) {
@@ -337,6 +375,10 @@ impl CodesState {
 
     pub fn clear_storage(&self) {
         SessionStorage::clear();
+    }
+
+    pub fn get_node_info(&self) -> &NodeInfo {
+        &self.node_info
     }
 
     pub fn is_update_code(&self, id: &str) -> bool {
@@ -385,9 +427,11 @@ impl CodesState {
             urls.push(&gnode.path);
             group_id = gnode.parent_id.to_string()
         }
-        let url: String = urls.into_iter().rev().collect::<Vec<&str>>().concat();
-        // TODO: HOST
-        format!("http://172.16.141.158:9999{}", url)
+        let mut url = urls.into_iter().rev().collect::<Vec<&str>>().concat();
+        if url.starts_with("/") {
+            url.remove(0);
+        }
+        url
     }
 }
 

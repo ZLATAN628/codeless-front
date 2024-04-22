@@ -71,7 +71,7 @@ pub fn api_display() -> Html {
         let key_code = e.code();
         // 处理快捷键
         if key_code == "KeyS" && e.ctrl_key() {
-            code_context.dispatch(CodesStateMsg::SaveCode);
+            code_context.dispatch(CodesStateMsg::SaveCode(code_context.dispatcher()));
             e.prevent_default();
         } else if key_code == "KeyQ" && e.ctrl_key() {
             code_context.dispatch(CodesStateMsg::TestCode(code_context.dispatcher()));

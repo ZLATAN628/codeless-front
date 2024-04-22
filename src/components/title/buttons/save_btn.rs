@@ -10,7 +10,7 @@ use crate::{
 pub fn save_btn(props: &BtnProps) -> Html {
     let code_context = use_codes();
     let callback = Callback::from(move |_e: MouseEvent| {
-        code_context.dispatch(CodesStateMsg::SaveCode);
+        code_context.dispatch(CodesStateMsg::SaveCode(code_context.dispatcher()));
     });
     html! {
         <Tooltip tip="保存">
